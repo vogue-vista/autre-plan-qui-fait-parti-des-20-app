@@ -2,85 +2,136 @@ import streamlit as st
 import pandas as pd
 from groq import Groq
 
-# Configuration de la page premium
-st.set_page_config(page_title="PredictiveStock AI + Groq", page_icon="📈", layout="wide")
+# Configuration de la page
+st.set_page_config(page_title="PredictiveStock AI", page_icon="📈", layout="wide")
 
-# Initialisation du client Groq (Remplacez par votre clé ou utilisez les variables d'environnement)
-# Idéalement, utilisez st.secrets["GROQ_API_KEY"] en production
-GROQ_API_KEY = "VOTRE_CLE_API_GROQ" 
+# -----------------------------------------------------------------------------
+# SÉCURITÉ & AUTHENTIFICATION (Simulée pour le Micro-SaaS)
+# -----------------------------------------------------------------------------
+# En production, remplacez ces valeurs ou connectez une base de données.
+USER_DATABASE = {
+    "admin": "premium2026",
+    "client1": "rolex30",
+    "test": "crypto"
+}
 
+def check_password():
+    """Retourne True si l'utilisateur a entré le bon mot de passe."""
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+
+    if st.session_state["authenticated"]:
+        return True
+
+    # Interface de connexion si non connecté
+    st.title("🔐 Accès Restreint — PredictiveStock AI")
+    st.write("Cette application nécessite un abonnement actif à **30 $/mois**.")
+    
+    # Intégration visuelle du bouton PayPal
+    st.markdown("""
+    <div style="background-color:#f9f9f9; padding:15px; border-radius:10px; border:1px solid #ddd; margin-bottom:20px;">
+        <h4>Pas encore abonné ?</h4>
+        <p>Activez votre accès instantanément pour 30 $/mois :</p>
+        <!-- Simulation de bouton PayPal -->
+        <a href="https://paypal.com" target="_blank" style="background-color:#0070ba; color:white; padding:10px 20px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">
+            🖲️ S'abonner avec PayPal (30$/mois)
+        </a>
+    </div>
+    """, unsafe_url_allowed=True)
+
+    # Formulaire de connexion
+    with st.form("Login Form"):
+        username = st.text_input("Nom d'utilisateur")
+        password = st.text_input("Mot de passe", type="password")
+        submit = st.form_submit_button("Se connecter")
+        
+        if submit:
+            if username in USER_DATABASE and USER_DATABASE[username] == password:
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("❌ Identifiants incorrects ou abonnement expiré.")
+    return False
+
+# Si l'utilisateur n'est pas connecté, on arrête l'exécution du script ici
+if not check_password():
+    st.stop()
+
+# -----------------------------------------------------------------------------
+# APPLICATION PRINCIPALE (Accessible uniquement après connexion)
+# -----------------------------------------------------------------------------
+
+# Initialisation du client Groq via les Secrets Streamlit
 try:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
     client = Groq(api_key=GROQ_API_KEY)
 except Exception:
     client = None
+    st.sidebar.warning("⚠️ Clé API Groq manquante dans les Secrets Streamlit.")
 
-st.title("📈 PredictiveStock AI — Propulsé par Groq")
-st.subheader("Analyse prédictive et conseils d'achat générés par IA")
+# Barre latérale de déconnexion
+st.sidebar.success("✅ Connecté avec succès")
+if st.sidebar.button("Se déconnecter"):
+    st.session_state["authenticated"] = False
+    st.rerun()
 
-# 1. Base de données fictive de la boutique de luxe
-data = {
-    'Modele': ['Rolex Submariner', 'Audemars Piguet Royal Oak', 'Patek Philippe Nautilus'],
-    'Stock_Actuel': [2, 0, 1],
-    'Ventes_Mois_Dernier': [5, 2, 1],
-    'Tendances_Reseaux_Sociaux': [
-        "Hausse de 30% des recherches sur Chrono24, forte traction sur TikTok auprès des 25-35 ans.",
-        "Rupture mondiale confirmée, prix du marché gris en hausse de 12% cette semaine.",
-        "Volume de recherche stable, mais intérêt accru de la part des clients VIP locaux."
-    ]
-}
-df = pd.DataFrame(data)
+st.title("📈 Votre Assistant d'Analyse Prédictive")
+st.subheader(" Entrez vos propres produits pour analyser la demande")
 
-st.markdown("### 📊 État actuel des stocks et du marché")
-st.dataframe(df)
+# Formulaire dynamique pour que l'utilisateur entre N'IMPORTE QUEL type de produit
+with st.expander("➕ Étape 1 : Configurer votre produit à analyser", expanded=True):
+    col_input1, col_input2 = st.columns(2)
+    with col_input1:
+        nom_produit = st.text_input("Nom de l'article (ex: Chaussures Nike Dunk, Sac Chanel, Carte Dracaufeu)", "Chaussures Nike Dunk")
+        stock_actuel = st.number_input("Quantité actuellement en stock", min_value=0, value=5, step=1)
+    with col_input2:
+        ventes_dernier_mois = st.number_input("Ventes réalisées le mois dernier", min_value=0, value=12, step=1)
+        tendances_observees = st.text_area("Tendances ou signaux observés (ex: Rupture sur le site officiel, influenceur en parle, etc.)", 
+                                           "Grosse tendance sur TikTok cette semaine, le modèle est en rupture de stock chez la plupart des grossistes.")
 
-# 2. Fonction pour appeler Groq et obtenir une analyse intelligente
-def generer_conseil_ia(modele, stock, ventes, tendances):
-    if not client or GROQ_API_KEY == "VOTRE_CLE_API_GROQ":
-        return "⚠️ Veuillez configurer votre clé API Groq pour activer les conseils IA."
+# Création du tableau de bord dynamique à partir des entrées de l'utilisateur
+st.markdown("### 📊 Données actuelles du produit")
+donnees_utilisateur = pd.DataFrame({
+    'Article': [nom_produit],
+    'Stock Actuel': [stock_actuel],
+    'Ventes (Mois Dernier)': [ventes_dernier_mois]
+})
+st.dataframe(donnees_utilisateur, use_container_width=True)
+
+# Bouton d'analyse IA avec Groq
+st.markdown("---")
+st.markdown("### 🤖 Analyse Stratégique par l'IA (Groq)")
+
+def generer_analyse_generique(produit, stock, ventes, tendances):
+    if not client:
+        return "⚠️ L'analyse ne peut pas être générée car la clé API Groq n'est pas configurée dans les paramètres de votre serveur."
     
-    # Prompt ultra-précis pour forcer l'IA à agir comme un consultant expert en retail de luxe
     prompt = f"""
-    Tu es un consultant expert en gestion des stocks pour des boutiques de montres de luxe. 
-    Analyse la situation suivante et donne une recommandation d'achat TRÈS courte (maximum 3 phrases), incisive et orientée business.
+    Tu es un consultant expert en gestion des stocks et de la demande pour des commerces de détail et e-commerce.
+    Analyse la situation de l'article suivant et donne une recommandation d'achat TRÈS courte (maximum 3 phrases), incisive et orientée profit.
     
-    - Modèle de montre : {modele}
-    - Stock actuel en boutique : {stock} unités
+    - Article : {produit}
+    - Stock actuel en magasin : {stock} unités
     - Ventes le mois dernier : {ventes} unités
-    - Tendances actuelles du marché : {tendances}
+    - Signaux de tendance : {tendances}
     
-    Dis clairement si le gérant doit recommander du stock, combien d'unités, et pourquoi par rapport à la tendance. Sois direct.
+    Indique clairement si le commerçant doit commander plus de stock, en quelle quantité estimée, et le risque s'il ne le fait pas.
     """
     
     try:
         chat_completion = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Tu es un expert business en horlogerie de luxe. Tu parles de manière professionnelle, concise et directe."},
+                {"role": "system", "content": "Tu es un expert business. Tu parles de manière professionnelle, concise et directe en français."},
                 {"role": "user", "content": prompt}
             ],
-            model="llama3-8b-8192", # Modèle ultra-rapide et économique de Groq
-            temperature=0.2, # Basse température pour éviter que l'IA n'invente des faits
+            model="llama3-8b-8192",
+            temperature=0.3,
         )
-        return chat_completion.choices[0].message.content
+        return chat_completion.choices.message.content
     except Exception as e:
-        return f"Erreur lors de l'appel à Groq : {str(e)}"
+        return f"Erreur lors de la génération : {str(e)}"
 
-# 3. Interface de génération des conseils IA
-st.markdown("---")
-st.markdown("### 🤖 Consultant IA Premium (Valeur ajoutée à 500$/mois)")
-
-selected_watch = st.selectbox("Sélectionnez une montre pour obtenir l'analyse stratégique de l'IA :", df['Modele'].unique())
-
-if st.button("Générer l'analyse Groq"):
-    # Récupération des données de la montre sélectionnée
-    row = df[df['Modele'] == selected_watch].iloc[0]
-    
-    with st.spinner("Groq analyse le marché en temps réel..."):
-        conseil = generer_conseil_ia(
-            row['Modele'], 
-            row['Stock_Actuel'], 
-            row['Ventes_Mois_Dernier'], 
-            row['Tendances_Reseaux_Sociaux']
-        )
-        
-    # Affichage du résultat dans un encadré premium
-    st.info(f"**Recommandation de l'IA pour le modèle {selected_watch} :**\n\n{conseil}")
+if st.button(f"🚀 Lancer l'analyse IA pour : {nom_produit}"):
+    with st.spinner("Groq analyse les données entrées..."):
+        resultat_ia = generer_analyse_generique(nom_produit, stock_actuel, ventes_dernier_mois, tendances_observees)
+    st.info(resultat_ia)
