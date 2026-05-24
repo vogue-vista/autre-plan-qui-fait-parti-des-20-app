@@ -1,137 +1,162 @@
 import streamlit as st
-import pandas as pd
+import streamlit.components.v1 as components
 from groq import Groq
 
-# Configuration de la page
-st.set_page_config(page_title="PredictiveStock AI", page_icon="📈", layout="wide")
+# -------------------------
+# CONFIGURATION DE LA PAGE
+# -------------------------
+st.set_page_config(page_title="PredictiveStock IA Pro", page_icon="📈", layout="wide")
 
-# -----------------------------------------------------------------------------
-# SÉCURITÉ & AUTHENTIFICATION (Simulée pour le Micro-SaaS)
-# -----------------------------------------------------------------------------
-# En production, remplacez ces valeurs ou connectez une base de données.
-USER_DATABASE = {
-    "admin": "premium2026",
-    "client1": "rolex30",
-    "test": "crypto"
+# Masquer la sidebar par défaut pour un look épuré (votre style d'origine)
+st.markdown("""
+<style>
+[data-testid="stSidebar"] {display: none !important;}
+[data-testid="stSidebarNav"] {display: none !important;}
+@import url('https://googleapis.com');
+html, body, div, p, h1, h2, h3, h4, h5, h6, span {
+    font-family: 'Poppins', sans-serif !important;
 }
+</style>
+""", unsafe_allow_html=True)
 
-def check_password():
-    """Retourne True si l'utilisateur a entré le bon mot de passe."""
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
+# -------------------------
+# CONFIGURATION PAYPAL (À REMPLIR PLUS TARD)
+# -------------------------
+PAYPAL_CLIENT_ID = "DEMO"  # Mettez votre Client ID ici plus tard
+PAYPAL_PLAN_ID = "DEMO"    # Mettez votre Plan ID ici plus tard
 
-    if st.session_state["authenticated"]:
-        return True
+# -------------------------
+# GESTION DE L'ACCÈS (SESSION STATE)
+# -------------------------
+if "est_abonne" not in st.session_state:
+    st.session_state.est_abonne = False
 
-    # Interface de connexion si non connecté
-    st.title("🔐 Accès Restreint — PredictiveStock AI")
-    st.write("Cette application nécessite un abonnement actif à **30 $/mois**.")
+try:
+    API_KEY = st.secrets["GROQ_API_KEY"]
+except:
+    API_KEY = ""
+
+# -------------------------
+# INTERFACE SÉCURISÉE
+# -------------------------
+st.title("📈 PredictiveStock IA — Version Pro")
+
+# CAS 1 : L'UTILISATEUR N'A PAS PAYÉ
+if not st.session_state.est_abonne:
+    st.warning("🔒 Cette application est réservée aux membres de la version Premium.")
     
-    # Intégration visuelle du bouton PayPal
-    st.markdown("""
-    <div style="background-color:#f9f9f9; padding:15px; border-radius:10px; border:1px solid #ddd; margin-bottom:20px;">
-        <h4>Pas encore abonné ?</h4>
-        <p>Activez votre accès instantanément pour 30 $/mois :</p>
-        <!-- Simulation de bouton PayPal -->
-        <a href="https://paypal.com" target="_blank" style="background-color:#0070ba; color:white; padding:10px 20px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">
-            🖲️ S'abonner avec PayPal (30$/mois)
-        </a>
-    </div>
-    """, unsafe_url_allowed=True)
-
-    # Formulaire de connexion
-    with st.form("Login Form"):
-        username = st.text_input("Nom d'utilisateur")
-        password = st.text_input("Mot de passe", type="password")
-        submit = st.form_submit_button("Se connecter")
+    col_offre, col_connexion = st.columns(2, gap="large")
+    
+    with col_offre:
+        st.subheader("🚀 Débloquez l'IA pour 50 $/mois")
+        st.write("Optimisez vos stocks, évitez les ruptures et anticipez la demande du marché (montres, vêtements, sneakers, etc.).")
+        st.write("Le paiement est entièrement sécurisé par **PayPal**.")
         
-        if submit:
-            if username in USER_DATABASE and USER_DATABASE[username] == password:
-                st.session_state["authenticated"] = True
+        if PAYPAL_CLIENT_ID == "DEMO":
+            paypal_html = """
+            <a href="https://paypal.com" target="_blank" style="text-decoration: none;">
+                <div style="background-color: #ffc439; color: #003087; text-align: center; 
+                            padding: 12px; font-family: Arial, sans-serif; font-weight: bold; 
+                            border-radius: 4px; max-width: 300px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    🟨 S'abonner avec PayPal (Démo)
+                </div>
+            </a>
+            """
+        else:
+            paypal_html = f"""
+            <div id="paypal-button-container-fixed" style="max-width: 350px; margin-top: 20px;"></div>
+            <script src="https://paypal.com/sdk/js?client-id={PAYPAL_CLIENT_ID}&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
+            <script>
+              paypal.Buttons({{
+                  style: {{ shape: 'rect', color: 'gold', layout: 'vertical', label: 'subscribe' }},
+                  createSubscription: function(data, actions) {{
+                    return actions.subscription.create({{ 'plan_id': '{PAYPAL_PLAN_ID}' }});
+                  }},
+                  onApprove: function(data, actions) {{
+                    alert('Abonnement réussi ! ID : ' + data.subscriptionID);
+                  }}
+              }}).render('#paypal-button-container-fixed');
+            </script>
+            """
+        
+        components.html(paypal_html, height=150, scrolling=False)
+        
+    with col_connexion:
+        st.subheader("🔑 Déjà abonné ?")
+        st.write("Connectez-vous pour activer vos accès.")
+        email = st.text_input("Adresse e-mail")
+        mot_de_passe = st.text_input("Mot de passe", type="password")
+        
+        if st.button("Se connecter", use_container_width=True):
+            if email == "test@client.com" and mot_de_passe == "access50":
+                st.session_state.est_abonne = True
+                st.success("Accès accordé !")
                 st.rerun()
             else:
-                st.error("❌ Identifiants incorrects ou abonnement expiré.")
-    return False
+                st.error("Identifiants incorrects ou abonnement PayPal inactif.")
 
-# Si l'utilisateur n'est pas connecté, on arrête l'exécution du script ici
-if not check_password():
-    st.stop()
+# CAS 2 : L'UTILISATEUR EST ABONNÉ -> ACCÈS COMPLET
+else:
+    st.write("✨ **Bienvenue dans votre espace Premium.** Votre analyseur prédictif est prêt.")
+    if st.button("🚪 Se déconnecter", key="logout"):
+        st.session_state.est_abonne = False
+        st.rerun()
+        
+    st.write("---")
 
-# -----------------------------------------------------------------------------
-# APPLICATION PRINCIPALE (Accessible uniquement après connexion)
-# -----------------------------------------------------------------------------
+    with st.container(border=True):
+        col_input, col_metriques = st.columns(2)
+        
+        with col_input:
+            produit = st.text_input("Nom ou type du produit à analyser", 
+                                    placeholder="Ex: Rolex Submariner 126610LN, Sneakers Jordan 4 Black Cat...")
+            tendances = st.text_area("Signaux & tendances du marché", 
+                                     placeholder="Ex: Rupture globale sur le site officiel, +40% de hype sur TikTok, prix en hausse sur le marché secondaire...")
+            
+        with col_metriques:
+            stock_actuel = st.number_input("Quantité actuelle en stock", min_value=0, value=2, step=1)
+            ventes_dernier_mois = st.number_input("Unités vendues le mois dernier", min_value=0, value=5, step=1)
 
-# Initialisation du client Groq via les Secrets Streamlit
-try:
-    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-    client = Groq(api_key=GROQ_API_KEY)
-except Exception:
-    client = None
-    st.sidebar.warning("⚠️ Clé API Groq manquante dans les Secrets Streamlit.")
+        generer = st.button("🚀 Lancer l'Analyse Prédictive Pro", use_container_width=True)
 
-# Barre latérale de déconnexion
-st.sidebar.success("✅ Connecté avec succès")
-if st.sidebar.button("Se déconnecter"):
-    st.session_state["authenticated"] = False
-    st.rerun()
+    if generer:
+        if not API_KEY:
+            st.error("⚠️ Erreur : La clé GROQ_API_KEY est manquante dans les Secrets du serveur.")
+        elif not produit:
+            st.error("⚠️ Veuillez indiquer le nom du produit à analyser.")
+        else:
+            with st.spinner("L'IA de Groq analyse l'état du marché et de vos stocks..."):
+                try:
+                    client = Groq(api_key=API_KEY)
+                    
+                    prompt_systeme = """Tu es un expert mondial en Business Intelligence et gestion de stock pour détaillants haut de gamme.
+                    Tu dois obligatoirement formater ta réponse sous forme de tableau Markdown avec exactement 3 colonnes :
+                    1. **Indicateur Stratégique** (ex: Demande estimée, Niveau de risque, Recommandation d'achat)
+                    2. **Analyse & Données** (Ton évaluation claire)
+                    3. **Plan d'Action Immédiat** (Ce que le gérant doit faire)
+                    Ne fais aucune intro ou conclusion."""
 
-st.title("📈 Votre Assistant d'Analyse Prédictive")
-st.subheader(" Entrez vos propres produits pour analyser la demande")
+                    prompt_utilisateur = f"""
+                    Produit à analyser : '{produit}'
+                    Stock actuel : {stock_actuel} unités
+                    Ventes mois dernier : {ventes_dernier_mois} unités
+                    Signaux du marché : {tendances}
+                    """
 
-# Formulaire dynamique pour que l'utilisateur entre N'IMPORTE QUEL type de produit
-with st.expander("➕ Étape 1 : Configurer votre produit à analyser", expanded=True):
-    col_input1, col_input2 = st.columns(2)
-    with col_input1:
-        nom_produit = st.text_input("Nom de l'article (ex: Chaussures Nike Dunk, Sac Chanel, Carte Dracaufeu)", "Chaussures Nike Dunk")
-        stock_actuel = st.number_input("Quantité actuellement en stock", min_value=0, value=5, step=1)
-    with col_input2:
-        ventes_dernier_mois = st.number_input("Ventes réalisées le mois dernier", min_value=0, value=12, step=1)
-        tendances_observees = st.text_area("Tendances ou signaux observés (ex: Rupture sur le site officiel, influenceur en parle, etc.)", 
-                                           "Grosse tendance sur TikTok cette semaine, le modèle est en rupture de stock chez la plupart des grossistes.")
+                    reponse = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[
+                            {"role": "system", "content": prompt_systeme},
+                            {"role": "user", "content": prompt_utilisateur}
+                        ],
+                        temperature=0.4
+                    )
+                    
+                    # Correspond exactement à votre structure corrigée
+                    script_genere = reponse.choices[0].message.content
+                    st.success("✨ L'analyse de vos stocks est prête !")
+                    st.markdown(script_genere)
+                    st.text_area("Copier le rapport brut :", value=script_genere, height=200)
 
-# Création du tableau de bord dynamique à partir des entrées de l'utilisateur
-st.markdown("### 📊 Données actuelles du produit")
-donnees_utilisateur = pd.DataFrame({
-    'Article': [nom_produit],
-    'Stock Actuel': [stock_actuel],
-    'Ventes (Mois Dernier)': [ventes_dernier_mois]
-})
-st.dataframe(donnees_utilisateur, use_container_width=True)
-
-# Bouton d'analyse IA avec Groq
-st.markdown("---")
-st.markdown("### 🤖 Analyse Stratégique par l'IA (Groq)")
-
-def generer_analyse_generique(produit, stock, ventes, tendances):
-    if not client:
-        return "⚠️ L'analyse ne peut pas être générée car la clé API Groq n'est pas configurée dans les paramètres de votre serveur."
-    
-    prompt = f"""
-    Tu es un consultant expert en gestion des stocks et de la demande pour des commerces de détail et e-commerce.
-    Analyse la situation de l'article suivant et donne une recommandation d'achat TRÈS courte (maximum 3 phrases), incisive et orientée profit.
-    
-    - Article : {produit}
-    - Stock actuel en magasin : {stock} unités
-    - Ventes le mois dernier : {ventes} unités
-    - Signaux de tendance : {tendances}
-    
-    Indique clairement si le commerçant doit commander plus de stock, en quelle quantité estimée, et le risque s'il ne le fait pas.
-    """
-    
-    try:
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "Tu es un expert business. Tu parles de manière professionnelle, concise et directe en français."},
-                {"role": "user", "content": prompt}
-            ],
-            model="llama3-8b-8192",
-            temperature=0.3,
-        )
-        return chat_completion.choices.message.content
-    except Exception as e:
-        return f"Erreur lors de la génération : {str(e)}"
-
-if st.button(f"🚀 Lancer l'analyse IA pour : {nom_produit}"):
-    with st.spinner("Groq analyse les données entrées..."):
-        resultat_ia = generer_analyse_generique(nom_produit, stock_actuel, ventes_dernier_mois, tendances_observees)
-    st.info(resultat_ia)
+                except Exception as e:
+                    st.error(f"Erreur technique Groq : {str(e)}")
